@@ -52,7 +52,7 @@ const chatSkins: Array<{ id: ChatSkin; name: string; badge: string }> = [
 ];
 
 const aspectPresets: Record<AspectId, { name: string; ratio: string; width: number; minHeight: number; outputWidth: number }> = {
-  auto: { name: "내용 맞춤", ratio: "AUTO", width: 680, minHeight: 820, outputWidth: 1080 },
+  auto: { name: "내용 맞춤", ratio: "AUTO", width: 680, minHeight: 0, outputWidth: 1080 },
   portrait: { name: "세로", ratio: "3:4", width: 720, minHeight: 960, outputWidth: 1200 },
   story: { name: "스토리", ratio: "9:16", width: 640, minHeight: 1138, outputWidth: 1080 },
   square: { name: "정사각", ratio: "1:1", width: 880, minHeight: 880, outputWidth: 1200 },
@@ -279,7 +279,7 @@ export default function Home() {
       await document.fonts.ready;
       exportNode = node.cloneNode(true) as HTMLElement;
       exportNode.style.width = `${selectedAspect.width}px`;
-      exportNode.style.minHeight = `${selectedAspect.minHeight}px`;
+      exportNode.style.minHeight = aspect === "auto" ? "0" : `${selectedAspect.minHeight}px`;
       exportNode.style.height = "auto";
       exportNode.style.zoom = "1";
       exportNode.style.margin = "0";
@@ -289,7 +289,7 @@ export default function Home() {
       exportHost.appendChild(exportNode);
       document.body.appendChild(exportHost);
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      const naturalHeight = aspect === "auto" ? Math.max(selectedAspect.minHeight, Math.ceil(exportNode.scrollHeight)) : selectedAspect.minHeight;
+      const naturalHeight = aspect === "auto" ? Math.max(1, Math.ceil(exportNode.scrollHeight)) : selectedAspect.minHeight;
       const desiredRatio = selectedAspect.outputWidth / selectedAspect.width;
       const pixelRatio = Math.max(1, Math.min(desiredRatio, 30000 / naturalHeight));
       const exportBackground = theme === "chat" && chatSkin === "discord" ? "#313338" : theme === "framed" ? frameColor : background;
@@ -300,7 +300,7 @@ export default function Home() {
         width: selectedAspect.width,
         height: naturalHeight,
         filter: (element) => !(element instanceof HTMLElement && element.dataset.previewOnly === "true"),
-        style: { position: "static", left: "auto", top: "auto", margin: "0", boxShadow: "none", zoom: "1", width: `${selectedAspect.width}px`, minHeight: `${selectedAspect.minHeight}px`, height: `${naturalHeight}px` },
+        style: { position: "static", left: "auto", top: "auto", margin: "0", boxShadow: "none", zoom: "1", width: `${selectedAspect.width}px`, minHeight: aspect === "auto" ? "0" : `${selectedAspect.minHeight}px`, height: `${naturalHeight}px` },
       });
       const baseName = `${title.trim() || "logmaker-chat"}-${selectedAspect.ratio.replace(":", "x")}`;
       const response = await fetch(dataUrl);
@@ -396,13 +396,14 @@ export default function Home() {
     fontSize: `${fontSize}px`,
     width: `${selectedAspect.width}px`,
     height: aspect === "auto" ? undefined : `${selectedAspect.minHeight}px`,
-    minHeight: `${selectedAspect.minHeight}px`,
+    minHeight: aspect === "auto" ? "0" : `${selectedAspect.minHeight}px`,
     zoom: `${zoom}%`,
     "--dynamic-accent": accent,
     "--body-line-height": lineHeight,
     "--notebook-line-height": `${lineHeight}em`,
     "--side-padding": `${sidePadding}px`,
     "--fit-scale": fitScale,
+    "--content-font-size": `${fontSize}px`,
   } as CSSProperties;
 
   return (
@@ -488,10 +489,10 @@ export default function Home() {
             <input ref={frameUploadRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => readImage(event, setFrameImage)} />
             {theme === "chat" && <div className="tip"><b>대사 입력 규칙</b><p>따옴표로 감싼 문단을 위에서부터 두 캐릭터에게 번갈아 배정합니다. 서술 문단은 대화 중간 안내문으로 남아요.</p></div>}
           </> : <>
-            <div className="control-title"><b>저장 이미지 비율</b><small>고정 비율은 내용 전체를 PNG 한 장에 맞춰요</small></div>
+            <div className="control-title"><b>저장 이미지 비율</b><small>내용 맞춤은 글 길이만큼만 저장해요</small></div>
             <div className="aspect-grid">{(Object.entries(aspectPresets) as Array<[AspectId, typeof aspectPresets.auto]>).map(([id, preset]) => <button key={id} className={aspect === id ? "active" : ""} onClick={() => chooseAspect(id)}><i className={`ratio-icon ratio-${id}`} /><b>{preset.name}</b><small>{preset.ratio}</small></button>)}</div>
             <label>본문 글꼴<select value={fontId} onChange={(event) => setFontId(event.target.value)}>{fonts.map((font) => <option key={font.id} value={font.id}>{font.name}</option>)}</select><small className="field-help">‘무료’ 표시는 Google Fonts에서 제공하는 오픈소스 한글 글꼴입니다.</small></label>
-            <label className="range-label"><span>글자 크기 <b>{fontSize}px</b></span><input type="range" min="11" max="30" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label>
+            <label className="range-label"><span>글자 크기 <b>{fontSize}px</b></span><input type="range" min="11" max="30" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /><small className="field-help">내용 맞춤에서는 선택한 크기를 그대로 사용해요. 고정 비율은 내용이 넘칠 때 한 장에 맞게 함께 축소돼요.</small></label>
             <label className="range-label"><span>줄 간격 <b>{lineHeight.toFixed(2)}</b></span><input type="range" min="1.2" max="3" step="0.05" value={lineHeight} onChange={(event) => setLineHeight(Number(event.target.value))} /></label>
             <label className="range-label"><span>좌우 여백 <b>{sidePadding}px</b></span><input type="range" min="24" max="180" step="4" value={sidePadding} onChange={(event) => setSidePadding(Number(event.target.value))} /></label>
             <div className="control-title"><b>따옴표 강조</b><small>강조를 없애거나 두께를 바꿀 수 있어요</small></div>
@@ -505,3 +506,4 @@ export default function Home() {
     </main>
   );
 }
+
