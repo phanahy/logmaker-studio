@@ -1,6 +1,4 @@
 @import url("https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Nanum+Myeongjo:wght@400;700;800&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&family=Song+Myung&display=swap");
-@import "tailwindcss";
-
 :root { --ink:#1d1d1f; --muted:#858589; --line:#e7e7e9; --panel:#f7f7f8; --accent:#2f67f6; }
 * { box-sizing:border-box; }
 html, body { margin:0; min-height:100%; background:#ededee; color:var(--ink); font-family:Arial,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
