@@ -18,6 +18,8 @@ type IllustrationItem = {
   height: number;
   topGap: number;
   bottomGap: number;
+  positionX: number;
+  positionY: number;
   fit: IllustrationFit;
 };
 
@@ -261,6 +263,8 @@ export default function Home() {
       height: 300,
       topGap: 34,
       bottomGap: 42,
+      positionX: 50,
+      positionY: 50,
       fit: "cover",
     }));
     setIllustrations((items) => [...items, ...created]);
@@ -289,7 +293,13 @@ export default function Home() {
       exportHost.appendChild(exportNode);
       document.body.appendChild(exportHost);
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      const naturalHeight = aspect === "auto" ? Math.max(1, Math.ceil(exportNode.scrollHeight)) : selectedAspect.minHeight;
+      const exportShell = exportNode.querySelector<HTMLElement>(".page-shell");
+      const exportRect = exportNode.getBoundingClientRect();
+      const shellRect = exportShell?.getBoundingClientRect();
+      const exportStyles = getComputedStyle(exportNode);
+      const paddingBottom = Number.parseFloat(exportStyles.paddingBottom) || 0;
+      const fittedHeight = shellRect ? shellRect.bottom - exportRect.top + paddingBottom : exportNode.scrollHeight;
+      const naturalHeight = aspect === "auto" ? Math.max(1, Math.ceil(fittedHeight)) : selectedAspect.minHeight;
       const desiredRatio = selectedAspect.outputWidth / selectedAspect.width;
       const pixelRatio = Math.max(1, Math.min(desiredRatio, 30000 / naturalHeight));
       const exportBackground = theme === "chat" && chatSkin === "discord" ? "#313338" : theme === "framed" ? frameColor : background;
@@ -336,6 +346,8 @@ export default function Home() {
       "--illustration-height": `${item.height}px`,
       "--illustration-top-gap": `${item.topGap}px`,
       "--illustration-bottom-gap": `${item.bottomGap}px`,
+      "--illustration-position-x": `${item.positionX}%`,
+      "--illustration-position-y": `${item.positionY}%`,
       "--illustration-fit": item.fit,
     } as CSSProperties}
   ><img className="inserted-image" src={item.src} alt={`사용자가 삽입한 장면 ${index + 1}`} /></div>;
@@ -471,6 +483,8 @@ export default function Home() {
                 <div className="selected-illustration-label">선택됨 · 삽화 {illustrations.findIndex((item) => item.id === selectedIllustration.id) + 1}</div>
                 <label className="range-label"><span>가로 너비 <b>{selectedIllustration.width}%</b></span><input type="range" min="30" max="100" step="2" value={selectedIllustration.width} onChange={(event) => updateIllustration(selectedIllustration.id, { width: Number(event.target.value) })} /></label>
                 <label className="range-label"><span>세로 높이 <b>{selectedIllustration.height}px</b></span><input type="range" min="100" max="700" step="10" value={selectedIllustration.height} onChange={(event) => updateIllustration(selectedIllustration.id, { height: Number(event.target.value) })} /></label>
+                <div className="control-title illustration-focus-title"><b>보이는 위치</b><small>얼굴이나 눈에 초점을 맞춰요</small></div>
+                <div className="gap-control-grid illustration-position-grid"><label className="range-label"><span>좌우 <b>{selectedIllustration.positionX}%</b></span><input type="range" min="0" max="100" step="1" value={selectedIllustration.positionX} onChange={(event) => updateIllustration(selectedIllustration.id, { positionX: Number(event.target.value) })} /></label><label className="range-label"><span>상하 <b>{selectedIllustration.positionY}%</b></span><input type="range" min="0" max="100" step="1" value={selectedIllustration.positionY} onChange={(event) => updateIllustration(selectedIllustration.id, { positionY: Number(event.target.value) })} /></label></div>
                 <div className="gap-control-grid"><label className="range-label"><span>위 여백 <b>{selectedIllustration.topGap}px</b></span><input type="range" min="0" max="120" step="4" value={selectedIllustration.topGap} onChange={(event) => updateIllustration(selectedIllustration.id, { topGap: Number(event.target.value) })} /></label><label className="range-label"><span>아래 여백 <b>{selectedIllustration.bottomGap}px</b></span><input type="range" min="0" max="120" step="4" value={selectedIllustration.bottomGap} onChange={(event) => updateIllustration(selectedIllustration.id, { bottomGap: Number(event.target.value) })} /></label></div>
                 <div className="control-title"><b>이미지 맞춤</b><small>선택한 삽화에만 적용돼요</small></div>
                 <div className="option-grid"><button className={selectedIllustration.fit === "cover" ? "active" : ""} onClick={() => updateIllustration(selectedIllustration.id, { fit: "cover" })}>영역 채우기</button><button className={selectedIllustration.fit === "contain" ? "active" : ""} onClick={() => updateIllustration(selectedIllustration.id, { fit: "contain" })}>전체 보기</button></div>
