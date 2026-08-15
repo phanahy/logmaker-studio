@@ -293,12 +293,26 @@ export default function Home() {
       exportHost.appendChild(exportNode);
       document.body.appendChild(exportHost);
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      const exportShell = exportNode.querySelector<HTMLElement>(".page-shell");
       const exportRect = exportNode.getBoundingClientRect();
-      const shellRect = exportShell?.getBoundingClientRect();
       const exportStyles = getComputedStyle(exportNode);
-      const paddingBottom = Number.parseFloat(exportStyles.paddingBottom) || 0;
-      const fittedHeight = shellRect ? shellRect.bottom - exportRect.top + paddingBottom : exportNode.scrollHeight;
+      let closingPadding = Number.parseFloat(exportStyles.paddingBottom) || 0;
+      if (theme === "chat") {
+        const stream = exportNode.querySelector<HTMLElement>(".chat-stream");
+        if (stream) closingPadding += Number.parseFloat(getComputedStyle(stream).paddingBottom) || 0;
+      }
+      if (theme === "framed") {
+        const sheet = exportNode.querySelector<HTMLElement>(".framed-sheet");
+        if (sheet) closingPadding += Number.parseFloat(getComputedStyle(sheet).paddingBottom) || 0;
+      }
+      const contentNodes = Array.from(exportNode.querySelectorAll<HTMLElement>(
+        ".paper-meta, h2, .letter-to, .prose-body p, .illustration-placed, .image-placeholder, .chat-app-header, .chat-time, .chat-line, .chat-narration, .letter-sign",
+      ));
+      const contentBottom = contentNodes.reduce((bottom, element) => {
+        const rect = element.getBoundingClientRect();
+        const marginBottom = Math.max(0, Number.parseFloat(getComputedStyle(element).marginBottom) || 0);
+        return Math.max(bottom, rect.bottom - exportRect.top + marginBottom);
+      }, 0);
+      const fittedHeight = contentBottom > 0 ? contentBottom + closingPadding : exportNode.scrollHeight;
       const naturalHeight = aspect === "auto" ? Math.max(1, Math.ceil(fittedHeight)) : selectedAspect.minHeight;
       const desiredRatio = selectedAspect.outputWidth / selectedAspect.width;
       const pixelRatio = Math.max(1, Math.min(desiredRatio, 30000 / naturalHeight));
