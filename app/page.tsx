@@ -115,6 +115,47 @@ const downloadBlob = (blob: Blob, filename: string) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1500);
 };
 
+const trimIllustrationPng = async (dataUrl: string, bottomPadding: number) => {
+  const image = new Image();
+  image.src = dataUrl;
+  await image.decode();
+  const source = document.createElement("canvas");
+  source.width = image.naturalWidth;
+  source.height = image.naturalHeight;
+  const context = source.getContext("2d", { willReadFrequently: true });
+  if (!context) return (await fetch(dataUrl)).blob();
+  context.drawImage(image, 0, 0);
+  const background = context.getImageData(0, 0, 1, 1).data;
+  const chunkHeight = 64;
+  let lastContentRow = -1;
+
+  outer: for (let chunkBottom = source.height; chunkBottom > 0; chunkBottom -= chunkHeight) {
+    const chunkTop = Math.max(0, chunkBottom - chunkHeight);
+    const pixels = context.getImageData(0, chunkTop, source.width, chunkBottom - chunkTop).data;
+    for (let row = chunkBottom - chunkTop - 1; row >= 0; row -= 1) {
+      for (let x = 0; x < source.width; x += 2) {
+        const offset = (row * source.width + x) * 4;
+        const difference = Math.abs(pixels[offset] - background[0])
+          + Math.abs(pixels[offset + 1] - background[1])
+          + Math.abs(pixels[offset + 2] - background[2]);
+        if (pixels[offset + 3] > 10 && difference > 18) {
+          lastContentRow = chunkTop + row;
+          break outer;
+        }
+      }
+    }
+  }
+
+  if (lastContentRow < 0) return (await fetch(dataUrl)).blob();
+  const croppedHeight = Math.min(source.height, lastContentRow + 1 + bottomPadding);
+  if (croppedHeight >= source.height - 2) return (await fetch(dataUrl)).blob();
+  const cropped = document.createElement("canvas");
+  cropped.width = source.width;
+  cropped.height = croppedHeight;
+  cropped.getContext("2d")?.drawImage(source, 0, 0, source.width, croppedHeight, 0, 0, source.width, croppedHeight);
+  return new Promise<Blob>((resolve, reject) => cropped.toBlob((blob) => blob ? resolve(blob) : reject(new Error("PNG crop failed")), "image/png"));
+};
+
 export default function Home() {
   const [theme, setTheme] = useState<ThemeId>("manuscript");
   const [tab, setTab] = useState<EditorTab>("content");
@@ -327,8 +368,10 @@ export default function Home() {
         style: { position: "static", left: "auto", top: "auto", margin: "0", boxShadow: "none", zoom: "1", width: `${selectedAspect.width}px`, minHeight: aspect === "auto" ? "0" : `${selectedAspect.minHeight}px`, height: `${naturalHeight}px` },
       });
       const baseName = `${title.trim() || "logmaker-chat"}-${selectedAspect.ratio.replace(":", "x")}`;
-      const response = await fetch(dataUrl);
-      downloadBlob(await response.blob(), `${baseName}.png`);
+      const blob = theme === "illustration"
+        ? await trimIllustrationPng(dataUrl, Math.max(24, Math.round(34 * pixelRatio)))
+        : await (await fetch(dataUrl)).blob();
+      downloadBlob(blob, `${baseName}.png`);
       setStatus(aspect === "auto" ? "긴 PNG 한 장으로 저장했어요" : `${selectedAspect.ratio} 한 페이지 PNG로 저장했어요`);
     } catch {
       setStatus("이미지를 만들지 못했어요. 삽화 용량을 줄여 보세요");
